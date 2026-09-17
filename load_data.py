@@ -4,9 +4,9 @@ import pandas as pd
 DB_FILE = "clinical_trial.db"
 CSV_FILE = "cell-count.csv"
 
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
+def init_db(conn):
     cur = conn.cursor()
+    cur.execute("PRAGMA foreign_keys = ON;")
     
     # Subjects table
     cur.execute("""
@@ -44,16 +44,21 @@ def init_db():
         FOREIGN KEY (sample) REFERENCES samples (sample)
     );
     """)
+
+    # Performance indexes for analytical filter columns
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_samples_filtering ON samples(treatment, sample_type, time_from_treatment_start, response);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_subjects_condition ON subjects(condition, sex);")
+
     conn.commit()
-    return conn
 
 def load_data():
-    df = pd.read_csv(CSV_FILE)
+    conn = sqlite3.connect(DB_FILE)
+    init_db(conn)
 
+    df = pd.read_csv(CSV_FILE)
+    
     # Clean duplicate sample rows 
     df = df.drop_duplicates(subset=["sample"])
-
-    conn = init_db()
 
     # Insert unique subjects 
     subjects_df = df[["subject", "age", "sex", "condition"]].drop_duplicates(subset=["subject"])
