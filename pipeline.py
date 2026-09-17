@@ -1,10 +1,14 @@
 import sqlite3
 import pandas as pd
+from scipy import stats
+from statsmodels.stats.multitest import multipletests
 
 DB_FILE = "clinical_trial.db"
 
 def run_pipeline():
     conn = sqlite3.connect(DB_FILE)
+
+    populations = ["b_cell", "cd8_t_cell", "cd4_t_cell", "nk_cell", "monocyte"]
     
     # PART 2: Relative Frequency Summary Table
     counts_df = pd.read_sql_query(
@@ -13,7 +17,6 @@ def run_pipeline():
     )
 
     # Calculate total number of cells 
-    populations = ["b_cell", "cd8_t_cell", "cd4_t_cell", "nk_cell", "monocyte"]
     counts_df["total_count"] = counts_df[populations].sum(axis=1)
 
     # Compute relative frequencies (percentage) 
@@ -30,6 +33,55 @@ def run_pipeline():
         "summary_frequencies", conn, if_exists="replace", index=False
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_summary_sample ON summary_frequencies(sample, population);")
+
+    # PART 3: Responder Statistics
+
+    # Extract relative cell frequencies for miraclib-treated melanoma PBMC samples, grouped by responder status
+    query_melanoma_pbmc_response = """
+    SELECT 
+        f.population,
+        f.percentage,
+        LOWER(s.response) AS response
+    FROM summary_frequencies f
+    JOIN samples s ON f.sample = s.sample
+    JOIN subjects sub ON s.subject = sub.subject
+    WHERE LOWER(sub.condition) = 'melanoma'
+      AND LOWER(s.treatment) = 'miraclib'
+      AND UPPER(s.sample_type) = 'PBMC'
+      AND LOWER(s.response) IN ('yes', 'no');
+    """
+    melanoma_response_df = pd.read_sql_query(query_melanoma_pbmc_response, conn)
+
+
+    stat_results = []
+
+    # Compare responders vs. non-responders for each cell population
+    for pop in populations:
+        subset = melanoma_response_df[melanoma_response_df["population"] == pop]
+
+        resp = subset[subset["response"] == "yes"]["percentage"]
+        non_resp = subset[subset["response"] == "no"]["percentage"]
+
+        # Primary test: Non-parametric Mann-Whitney U
+        mw_stat, mw_pval = stats.mannwhitneyu(resp, non_resp, alternative="two-sided")
+        
+        # Secondary sanity check: Parametric Welch's t-test
+        welch_stat, welch_pval = stats.ttest_ind(resp, non_resp, equal_var=False)
+
+        stat_results.append({
+            "population": pop,
+            "responder_median": float(resp.median()),
+            "non_responder_median": float(non_resp.median()),
+            "mw_stat": float(mw_stat),
+            "mw_pval": float(mw_pval),
+            "welch_stat": float(welch_stat),
+            "welch_pval": float(welch_pval),
+        })
+
+    # Store statistical analysis for dashboard
+    stat_df = pd.DataFrame(stat_results)
+    stat_df.to_sql("statistical_results", conn, if_exists="replace", index=False)
+    
     
     conn.close()
 
