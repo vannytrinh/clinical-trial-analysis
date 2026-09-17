@@ -146,3 +146,107 @@ with tab2:
             use_container_width=True,
             hide_index=True
         )
+
+# PART 4: Baseline Cohort Exploration
+with tab3:
+    st.subheader("Baseline Cohort Exploration (t = 0)")
+    st.markdown(
+        """
+        Exploratory subset analysis for **Melanoma PBMC** samples collected at 
+        baseline (`time_from_treatment_start = 0`) from subjects treated with **miraclib**.
+        """
+    )
+
+    # Read precomputed DataFrames
+    baseline_samples_df = pd.read_sql_query("SELECT * FROM baseline_samples;", conn)
+    project_counts = pd.read_sql_query("SELECT * FROM baseline_project_counts;", conn)
+    responder_counts = pd.read_sql_query("SELECT * FROM baseline_responder_counts;", conn)
+    sex_counts = pd.read_sql_query("SELECT * FROM baseline_sex_counts;", conn)
+
+
+# 1. Collapsible Baseline Samples Table
+    with st.expander(
+        f"View Baseline Sample Records (N = {len(baseline_samples_df)})",
+        expanded=False,
+    ):
+        st.dataframe(
+            baseline_samples_df.rename(
+                columns={
+                    "subject": "Subject ID",
+                    "sample": "Sample ID",
+                    "project": "Project",
+                    "response": "Response",
+                    "sex": "Sex",
+                    "time_from_treatment_start": "Time (t)",
+                }
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    st.divider()
+
+    # 2. Breakdown Visualizations (Consistent Horizontal Bar Charts)
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.markdown("**Samples per Project**")
+        fig_proj = px.bar(
+            project_counts,
+            x="sample_count",
+            y="project",
+            orientation="h",
+            text="sample_count",
+            color_discrete_sequence=["#109618"],  # Clinical Green
+            height=320,
+        )
+        fig_proj.update_traces(textposition="outside")
+        fig_proj.update_layout(
+            xaxis_title="Samples",
+            yaxis_title="",
+            yaxis=dict(autorange="reversed"),
+            margin=dict(l=10, r=25, t=10, b=10),
+        )
+        st.plotly_chart(fig_proj, use_container_width=True)
+
+    with col2:
+        st.markdown("**Subjects by Response**")
+        fig_resp = px.bar(
+            responder_counts,
+            x="subject_count",
+            y="response",
+            orientation="h",
+            text="subject_count",
+            color="response",
+            color_discrete_map={"no": "#7f7f7f", "yes": "#1f77b4"},
+            height=320,
+        )
+        fig_resp.update_traces(textposition="outside")
+        fig_resp.update_layout(
+            showlegend=False,
+            xaxis_title="Subjects",
+            yaxis_title="",
+            yaxis=dict(autorange="reversed"),
+            margin=dict(l=10, r=25, t=10, b=10),
+        )
+        st.plotly_chart(fig_resp, use_container_width=True)
+
+    with col3:
+        st.markdown("**Subjects by Sex**")
+        fig_sex = px.bar(
+            sex_counts,
+            x="subject_count",
+            y="sex",
+            orientation="h",
+            text="subject_count",
+            color_discrete_sequence=["#990099"],  # Plum / Violet
+            height=320,
+        )
+        fig_sex.update_traces(textposition="outside")
+        fig_sex.update_layout(
+            xaxis_title="Subjects",
+            yaxis_title="",
+            yaxis=dict(autorange="reversed"),
+            margin=dict(l=10, r=25, t=10, b=10),
+        )
+        st.plotly_chart(fig_sex, use_container_width=True)
