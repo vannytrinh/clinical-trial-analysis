@@ -1,0 +1,20 @@
+@"
+# Virtual environments
+.venv/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Python bytecode & cache
+__pycache__/
+*.pyc
+
+# Operating system artifacts
+.DS_Store
+Thumbs.db
+
+# VS Code settings
+.vscode/
+"@ | Out-File -Encoding utf8 .gitignore
