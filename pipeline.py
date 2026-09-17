@@ -81,6 +81,94 @@ def run_pipeline():
     # Store statistical analysis for dashboard
     stat_df = pd.DataFrame(stat_results)
     stat_df.to_sql("statistical_results", conn, if_exists="replace", index=False)
+
+    # PART 4: Baseline Subset Analysis
+
+    cur = conn.cursor()
+
+    # All baseline samples (t=0) for melanoma PBMC miraclib-treated subjects
+    baseline_samples_df = pd.read_sql_query(
+        """
+        SELECT 
+            s.sample,
+            s.subject,
+            s.project,
+            COALESCE(s.response, 'Unknown') AS response,
+            sub.sex,
+            s.time_from_treatment_start
+        FROM samples s
+        JOIN subjects sub ON s.subject = sub.subject
+        WHERE LOWER(sub.condition) = 'melanoma'
+        AND LOWER(s.treatment) = 'miraclib'
+        AND UPPER(s.sample_type) = 'PBMC'
+        AND s.time_from_treatment_start = 0
+        ORDER BY s.project, s.subject;
+    """,
+        conn,
+    )
+
+    # Store sample list for downstream queries and dashboard
+    baseline_samples_df.to_sql(
+        "baseline_samples", conn, if_exists="replace", index=False
+    )
+
+    # Extend query to calculate samples per project, per response, and per sex for baseline cohort
+    project_counts = pd.read_sql_query(
+        """
+        SELECT project, COUNT(sample) AS sample_count
+        FROM baseline_samples
+        GROUP BY project
+        ORDER BY sample_count DESC;
+    """,
+        conn,
+    )
+
+    responder_counts = pd.read_sql_query(
+        """
+        SELECT response, COUNT(DISTINCT subject) AS subject_count
+        FROM baseline_samples
+        GROUP BY response
+        ORDER BY subject_count DESC;
+    """,
+        conn,
+    )
+
+    sex_counts = pd.read_sql_query(
+        """
+        SELECT sex, COUNT(DISTINCT subject) AS subject_count
+        FROM baseline_samples
+        GROUP BY sex
+        ORDER BY subject_count DESC;
+    """,
+        conn,
+    )
+
+    # Store baseline cohort metrics for dashboard
+    project_counts.to_sql(
+        "baseline_project_counts", conn, if_exists="replace", index=False
+    )
+    responder_counts.to_sql(
+        "baseline_responder_counts", conn, if_exists="replace", index=False
+    )
+    sex_counts.to_sql(
+        "baseline_sex_counts", conn, if_exists="replace", index=False
+    )    
+
+    # Average B cells for Melanoma males, all sample/treatment types, responders, time=0
+    q_avg_b = """
+    SELECT COALESCE(ROUND(AVG(c.b_cell), 2), 0.0) AS avg_b_cells
+    FROM cell_counts c
+    JOIN samples s ON c.sample = s.sample
+    JOIN subjects sub ON s.subject = sub.subject
+    WHERE LOWER(TRIM(sub.condition)) = 'melanoma'
+    AND LOWER(TRIM(sub.sex)) IN ('m', 'male')
+    AND LOWER(TRIM(s.response)) IN ('yes', 'y')
+    AND s.time_from_treatment_start = 0;
+    """
+    avg_b = cur.execute(q_avg_b).fetchone()[0]
+
+    # Print: Average number of B cells for responders at time=0 for Melanoma males of all sample and treatment types
+    print(f"Part 4 Average B Cells (Melanoma Male Responders t=0): {avg_b:.2f}")
     
     
     conn.close()
