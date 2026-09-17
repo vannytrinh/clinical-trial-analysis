@@ -154,7 +154,7 @@ def run_pipeline():
         "baseline_sex_counts", conn, if_exists="replace", index=False
     )    
 
-    # Average B cells for Melanoma males, all sample/treatment types, responders, time=0
+    # PART 5: Average B cells for Melanoma males, all sample/treatment types, responders, time=0
     q_avg_b = """
     SELECT COALESCE(ROUND(AVG(c.b_cell), 2), 0.0) AS avg_b_cells
     FROM cell_counts c
@@ -167,8 +167,8 @@ def run_pipeline():
     """
     avg_b = cur.execute(q_avg_b).fetchone()[0]
 
-    # Print: Average number of B cells for responders at time=0 for Melanoma males of all sample and treatment types
-    print(f"Part 4 Average B Cells (Melanoma Male Responders t=0): {avg_b:.2f}")
+    # Print answer 
+    print(f"Part 5 Average B Cells (Melanoma Male Responders t=0): {avg_b:.2f}")
     
     
     conn.close()
