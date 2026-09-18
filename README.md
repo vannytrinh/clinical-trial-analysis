@@ -1,7 +1,14 @@
+# Clinical Trial Analysis 
+
 A data pipeline and Streamlit dashboard for processing, analyzing, and visualizing clinical trial cell count and cohort data using SQLite.
 
 ---
 
+## Live Dashboard
+
+- **Dashboard URL**: [https://clinical-trial-analysis-hvqvbhhk9rjzgv72zk2vos.streamlit.app/](https://clinical-trial-analysis-hvqvbhhk9rjzgv72zk2vos.streamlit.app/)
+
+---
 
 ## How to Run
 
